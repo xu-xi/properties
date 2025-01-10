@@ -77,3 +77,7 @@ class KnownValues(unittest.TestCase):
     XC_GRID 000099000590
     $end
     """
+
+if __name__ == "__main__":
+    print("Tests for IR intensities")
+    unittest.main()
