@@ -4,7 +4,8 @@ import numpy
 import unittest
 from pyscf import gto, lib, scf, dft
 from pyscf.prop.infrared.rhf import kernel_dipderiv, Infrared
-from pyscf.prop.infrared.efield import dipole_grad, GradWithEfield, SCFWithEfield
+from pyscf.prop.infrared.efield import dipole_grad, GradwithEfield, SCFwithEfield
+from pyscf.prop.polarizability.rhf import Polarizability
 
 class KnownValues(unittest.TestCase):
     def test_dipole_grad(self):
@@ -35,16 +36,23 @@ class KnownValues(unittest.TestCase):
         mf0 = dft.RKS(mol)
         mf0.scf()
 
-        mf1 = SCFWithEfield(mol)
+        mf1 = SCFwithEfield(mol)
         mf1.efield = numpy.array([0, 0, 0.001])
         e1 = mf1.scf()
 
-        mf2 = SCFWithEfield(mol)
+        mf2 = SCFwithEfield(mol)
         mf2.efield = numpy.array([0, 0, -0.001])
         e2 = mf2.scf()
 
         dipole = (e2 - e1) / 0.002
         self.assertAlmostEqual(dipole, scf.hf.dip_moment(mol, mf0.make_rdm1(), unit='au')[-1], 5)
+
+        dipole1 = scf.hf.dip_moment(mol, mf1.make_rdm1(), unit='au')[-1]
+        dipole2 = scf.hf.dip_moment(mol, mf2.make_rdm1(), unit='au')[-1]
+
+        polar = Polarizability(mf0).polarizability()
+        self.assertAlmostEqual(polar[-1,-1], (dipole1 - dipole2) / 0.002, 5)
+
 
 
     def test_grad_with_efield(self):
@@ -52,16 +60,16 @@ class KnownValues(unittest.TestCase):
         mf0 = dft.RKS(mol)
         mf0.efield = numpy.array([0, 0, 0.001])
         mf0.scf()
-        grad = GradWithEfield(mf0)
+        grad = GradwithEfield(mf0)
         de = grad.kernel()
 
         mol1 = gto.M(atom='H 0 0 -0.001; F 0 0 0.9', basis='ccpvdz')
-        mf1 = SCFWithEfield(mol1)
+        mf1 = SCFwithEfield(mol1)
         mf1.efield = numpy.array([0, 0, 0.001])
         e1 = mf1.scf()
 
         mol2 = gto.M(atom='H 0 0 0.001; F 0 0 0.9', basis='ccpvdz')
-        mf2 = SCFWithEfield(mol2)
+        mf2 = SCFwithEfield(mol2)
         mf2.efield = numpy.array([0, 0, 0.001])
         e2 = mf2.scf()
 

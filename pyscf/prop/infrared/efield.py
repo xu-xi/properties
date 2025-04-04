@@ -88,7 +88,7 @@ def dipole_grad(mf):
 
     return de
 
-class SCFWithEfield(dft.rks.RKS):
+class SCFwithEfield(dft.rks.RKS):
     ' SCF with external electric field '
     _keys = {'efield'}
 
@@ -114,7 +114,7 @@ class SCFWithEfield(dft.rks.RKS):
         return self.mol.enuc + E_nuc_field
     
 
-class GradWithEfield(grad.rks.Gradients):
+class GradwithEfield(grad.rks.Gradients):
     ' Gradients with external electric field '
     _keys = {'mf'}
     def __init__(self, mf):
@@ -129,16 +129,16 @@ class GradWithEfield(grad.rks.Gradients):
         de += numpy.einsum('xt, t ->x', self._dipole_de[atom_id], self._efield)
         return de
 
-SCFWithEfield.Gradients = lib.class_as_method(GradWithEfield)
+SCFwithEfield.Gradients = lib.class_as_method(GradwithEfield)
     
 if __name__ == '__main__':
     from pyscf import gto
     #mol = gto.M(atom="N 0 0 0; H 0.8 0 0; H 0 1 0; H 0 0 1.2", basis="ccpvdz")
     mol = gto.M(atom='H 0 0 0; F 0 0 1.0', basis='ccpvdz')
 
-    mf = SCFWithEfield(mol)
+    mf = SCFwithEfield(mol)
     mf.efield = numpy.array([0, 0, 0.001])
     mf.run()
 
-    grad = GradWithEfield(mf)
+    grad = GradwithEfield(mf)
     g = grad.kernel()
