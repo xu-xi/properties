@@ -92,24 +92,26 @@ class SCFwithEfield(dft.rks.RKS):
     ' SCF with external electric field '
     _keys = {'efield'}
 
-    def __init__(self, mol, xc='LDA,VWN'):
-        dft.rks.RKS.__init__(self, mol, xc)
+    def __init__(self, mol, **kwargs):
+        dft.rks.RKS.__init__(self, mol, **kwargs)
         self.efield = numpy.array([0, 0, 0]) # unit: a.u. ( 1 a.u. = 5.14e11 V/m ? )
         self.mol = mol
 
         
     def get_hcore(self, mol):
-        mol.set_common_orig([0, 0, 0])  # The gauge origin for dipole integral
-        h = numpy.einsum('x,xij->ij', self.efield, mol.intor('int1e_r', comp=3))
-        h += super().get_hcore(mol) 
+
+        with mol.with_common_orig([0, 0, 0]):
+            h = numpy.einsum('x,xij->ij', self.efield, mol.intor('int1e_r', comp=3))
+
+        h += super().get_hcore(mol)
 
         return h 
     
     def energy_nuc(self):        
-        nuclear_charges = self.mol.atom_charges()  
-        nuclear_coords = self.mol.atom_coords()    
+        charges = self.mol.atom_charges()  
+        coords = self.mol.atom_coords()    
 
-        E_nuc_field = -numpy.sum([Z * numpy.dot(self.efield, R) for Z, R in zip(nuclear_charges, nuclear_coords)])
+        E_nuc_field = -numpy.sum([Z * numpy.dot(self.efield, R) for Z, R in zip(charges, coords)])
 
         return self.mol.enuc + E_nuc_field
     
@@ -122,12 +124,33 @@ class GradwithEfield(grad.rks.Gradients):
 
         self.mf = self.base = mf
         self._efield = mf.efield
-        self._dipole_de = dipole_grad(self.mf)
+
+        mol = self.mol
+        charges = mol.atom_charges()
+        coords  = mol.atom_coords()
+        self._charge_center = numpy.einsum('i,ix->x', charges, coords) / charges.sum()
     
-    def extra_force(self, atom_id, envs):
-        de = super().extra_force(atom_id, envs)
-        de += numpy.einsum('xt, t ->x', self._dipole_de[atom_id], self._efield)
-        return de
+    def get_hcore(self, mol=None):
+        if mol is None: mol = self.mf.mol
+        nao = mol.nao
+
+        with mol.with_common_orig([0, 0, 0]):
+            int1e_irp = - mol.intor("int1e_irp", comp=9).reshape(3, 3, nao, nao)
+
+        h = super().get_hcore(mol)
+        h += numpy.einsum('z,zxij->xij', self._efield, int1e_irp)
+
+        return h
+    
+    def grad_nuc(self, atmlst=None):
+        gs = super().grad_nuc(atmlst)
+        charges = self.mf.mol.atom_charges()
+        gs -= numpy.einsum('i,x->ix', charges, self._efield)
+        if atmlst is not None:
+            gs = gs[atmlst]
+        return gs
+
+
 
 SCFwithEfield.Gradients = lib.class_as_method(GradwithEfield)
     
