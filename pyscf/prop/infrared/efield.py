@@ -2,7 +2,7 @@
 
 from functools import reduce
 import numpy
-from pyscf import lib, dft, grad
+from pyscf import lib, dft, grad, scf
 from pyscf.scf import cphf
 
 def gen_vind(mf, mo_coeff, mo_occ):
@@ -97,7 +97,7 @@ class SCFwithEfield(dft.rks.RKS):
         self.efield = numpy.array([0, 0, 0]) # unit: a.u. ( 1 a.u. = 5.14e11 V/m ? )
         self.mol = mol
 
-        
+
     def get_hcore(self, mol):
 
         with mol.with_common_orig([0, 0, 0]):
@@ -138,7 +138,7 @@ class GradwithEfield(grad.rks.Gradients):
             int1e_irp = - mol.intor("int1e_irp", comp=9).reshape(3, 3, nao, nao)
 
         h = super().get_hcore(mol)
-        h += numpy.einsum('z,zxij->xij', self._efield, int1e_irp)
+        h += numpy.einsum('z,zxij->xji', self._efield, int1e_irp) # nable is on ket in int1e_irp
 
         return h
     
@@ -157,11 +157,12 @@ SCFwithEfield.Gradients = lib.class_as_method(GradwithEfield)
 if __name__ == '__main__':
     from pyscf import gto
     #mol = gto.M(atom="N 0 0 0; H 0.8 0 0; H 0 1 0; H 0 0 1.2", basis="ccpvdz")
-    mol = gto.M(atom='H 0 0 0; F 0 0 1.0', basis='ccpvdz')
+    mol = gto.M(atom='H 0 0 0; F 0 0 0.8', basis='ccpvdz')
 
     mf = SCFwithEfield(mol)
-    mf.efield = numpy.array([0, 0, 0.001])
+    mf.efield = numpy.array([0, 0, 0.01])
     mf.run()
 
     grad = GradwithEfield(mf)
+    grad.grid_response = True
     g = grad.kernel()
