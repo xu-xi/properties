@@ -3,32 +3,49 @@
 import numpy
 import unittest
 from pyscf import gto, lib, scf, dft
-from pyscf.prop.infrared.rhf import kernel_dipderiv, Infrared
+from pyscf.prop.infrared.rhf import kernel_dipderiv
+from pyscf.prop.infrared.rks import Infrared
 from pyscf.prop.infrared.efield import dipole_grad, GradwithEfield, SCFwithEfield
 from pyscf.prop.polarizability.rhf import Polarizability
 
 class KnownValues(unittest.TestCase):
     def test_dipole_grad(self):
-        mol = gto.M(atom='H 0 0 0; F 0 0 0.9', basis='ccpvdz')
-        mf = scf.RHF(mol)
+        mol = gto.M(atom='''O 0.0000 0.0000 0.0000;
+                    H 0.75740 0.58680 0.0000;
+                    H -0.75740 0.58680 0.0000;
+                    ''', basis='ccpvdz')
+        mf = dft.RKS(mol, xc='b3lyp')
         mf.run()
 
-        de2 = dipole_grad(mf)
+        de1 = dipole_grad(mf)
+        print(de1)
 
         mf_ir = Infrared(mf).run()
-        de1 = kernel_dipderiv(mf_ir)
+        de2 = kernel_dipderiv(mf_ir)
+        print(de2)
 
-        mol1 = gto.M(atom='H 0 0 -0.001; F 0 0 0.9', basis='ccpvdz')
-        mf1 = scf.RHF(mol1)
+        self.assertAlmostEqual(abs(de1 - de2).max(), 0, 7)
+
+        mol1 = gto.M(atom='''O 0.0000 0.0000 0.0000;
+                    H 0.75740 0.58580 0.0000;
+                    H -0.75740 0.58680 0.0000;
+                    ''', basis='ccpvdz')
+        mf1 = dft.RKS(mol1, xc='b3lyp')
         mf1.scf()
 
-        mol2 = gto.M(atom='H 0 0 0.001; F 0 0 0.9', basis='ccpvdz')
-        mf2 = scf.RHF(mol2)
+        mol2 = gto.M(atom='''O 0.0000 0.0000 0.0000;
+                    H 0.75740 0.58780 0.0000;
+                    H -0.75740 0.58680 0.0000;
+                    ''', basis='ccpvdz')
+        mf2 = dft.RKS(mol2, xc='b3lyp')
         mf2.scf()
 
-        de = (scf.hf.dip_moment(mol2, mf2.make_rdm1(), unit='au')[-1] - scf.hf.dip_moment(mol1, mf1.make_rdm1(), unit='au')[-1])/0.002*lib.param.BOHR
-        self.assertAlmostEqual(de1[0,-1,-1], de, 5)
-        self.assertAlmostEqual(de2[0,-1,-1], de, 5)
+        de_fd = (mf2.dip_moment(unit='au') - mf1.dip_moment(unit='au'))/0.002*lib.param.BOHR
+        print(de_fd)
+
+        
+        self.assertAlmostEqual(abs(de1[1, 1] - de_fd).max(), 0, 4)
+        self.assertAlmostEqual(abs(de2[1, 1] - de_fd).max(), 0, 4)
 
 
     def test_scf_with_efield(self):
