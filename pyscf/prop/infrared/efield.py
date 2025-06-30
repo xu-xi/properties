@@ -115,6 +115,9 @@ class SCFwithEfield(dft.rks.RKS):
 
         return self.mol.enuc + E_nuc_field
     
+    def nuc_grad_method(self):
+        return GradwithEfield(self)
+    
 
 class GradwithEfield(grad.rks.Gradients):
     ' Gradients with external electric field '

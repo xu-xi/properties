@@ -73,28 +73,37 @@ class KnownValues(unittest.TestCase):
 
 
     def test_grad_with_efield(self):
-        mol = gto.M(atom='H 0 0 0; F 0 0 0.8', basis='ccpvdz')
+        mol = gto.M(atom='''O 0.0000 0.0000 0.0000;
+                    H 0.75740 0.58680 0.0000;
+                    H -0.75740 0.58680 0.0000;
+                    ''', basis='ccpvdz')
         mf0 = SCFwithEfield(mol)
-        mf0.efield = numpy.array([0, 0.0, 0.01])
+        mf0.efield = numpy.array([0, 0.01, 0])
         mf0.scf()
         grad = GradwithEfield(mf0)
         grad.grid_response = True
         de = grad.kernel()
 
-        mol1 = gto.M(atom='H 0 0 -0.001; F 0 0 0.8', basis='ccpvdz')
+        mol1 = gto.M(atom='''O 0.0000 0.0000 0.0000;
+                    H 0.75740 0.58580 0.0000;
+                    H -0.75740 0.58680 0.0000;
+                    ''', basis='ccpvdz')
         mf1 = SCFwithEfield(mol1)
-        mf1.efield = numpy.array([0, 0.0, 0.01])
+        mf1.efield = numpy.array([0, 0.01, 0])
 
         e1 = mf1.scf()
 
-        mol2 = gto.M(atom='H 0 0 0.001; F 0 0 0.8', basis='ccpvdz')
+        mol2 = gto.M(atom='''O 0.0000 0.0000 0.0000;
+                    H 0.75740 0.58780 0.0000;
+                    H -0.75740 0.58680 0.0000;
+                    ''', basis='ccpvdz')
         mf2 = SCFwithEfield(mol2)
-        mf2.efield = numpy.array([0, 0.0, 0.01])
+        mf2.efield = numpy.array([0, 0.01, 0])
 
         e2 = mf2.scf()
 
         de_fd = (e2 - e1) / 0.002*lib.param.BOHR
-        self.assertAlmostEqual(de[0, -1], de_fd, 5)
+        self.assertAlmostEqual(de[1, 1], de_fd, 6)
 
 
 if __name__ == "__main__":
